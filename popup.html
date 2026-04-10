@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compose Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Auth Section (shown when not logged in) -->
+    <section id="auth-section" class="section">
+      <div class="auth-header">
+        <span class="logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="none"><line x1="8" y1="16" x2="17" y2="7" stroke="white" stroke-width="2.2" stroke-linecap="round"/><path d="M7.3 15.3 L8.7 16.7 L5.5 18.5Z" fill="white"/><path d="M19 1.5L19.7 3.3 21.5 4 19.7 4.7 19 6.5 18.3 4.7 16.5 4 18.3 3.3Z" fill="white"/></svg></span>
+        <h1>Compose Assistant</h1>
+      </div>
+      <p class="subtitle">Sign in to get started</p>
+      <button id="google-sign-in-btn" class="btn google-btn" type="button">
+        <svg width="18" height="18" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        Sign in with Google
+      </button>
+      <p id="auth-error" class="auth-error hidden"></p>
+    </section>
+
+    <!-- Main Section - Single page with topbar navigation -->
+    <section id="main-section" class="section hidden">
+      <!-- Topbar (always visible) -->
+      <div class="topbar">
+        <div class="topbar-user">
+          <span id="connection-status" class="status-dot" title="Checking server..."></span>
+          <div class="topbar-user-info">
+            <span id="user-display-name" class="topbar-name"></span>
+            <span id="user-id-display" class="topbar-id"></span>
+          </div>
+          <span id="topbar-credit-badge" class="topbar-credit" title="Credit balance"></span>
+        </div>
+        <div class="topbar-actions">
+          <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+          <button id="debug-btn" class="icon-btn" title="Debug & History" aria-label="Debug & History">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Content Area -->
+      <div class="content-area">
+        <!-- HOME VIEW -->
+        <div id="view-home" class="view">
+          <!-- Account Status -->
+          <div id="account-status" class="account-status-card">
+            <div class="account-status-row">
+              <div class="account-status-tier">
+                <span id="home-tier-badge" class="tier-indicator tier-paid">Paid</span>
+                <span id="home-tier-model" class="tier-model">Gemini 3 Flash</span>
+              </div>
+              <div id="home-credit-display" class="account-credit-display">
+                <span id="home-credit-remaining" class="credit-amount">$5.00</span>
+                <span class="credit-label">remaining</span>
+              </div>
+            </div>
+            <div class="account-usage-bar-container">
+              <div id="home-usage-bar" class="account-usage-bar" style="width: 0%"></div>
+            </div>
+            <div class="account-status-detail">
+              <span id="home-usage-text" class="usage-text">$0.00 used of $5.00</span>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div id="quick-actions" class="quick-actions">
+            <button id="compose-btn" class="btn primary" title="Compose on active page (Alt+Q)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              Compose
+            </button>
+            <button id="open-chat-btn" class="btn secondary" title="Open Chat (Alt+W)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              Chat
+            </button>
+          </div>
+
+          <!-- Quick Note -->
+          <div id="quick-note" class="view-card">
+            <div class="view-card-header">
+              <h3 class="view-card-title">Save a Note</h3>
+              <p class="view-card-description">Save a preference, fact, or note to memory</p>
+            </div>
+            <div class="view-card-content">
+              <div class="setting-group">
+                <textarea id="note-input" rows="3" placeholder="e.g., I prefer formal tone in emails, My team uses Slack for standups..."></textarea>
+              </div>
+              <button id="save-note-btn" class="btn primary" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                </svg>
+                Save Note
+              </button>
+              <div id="note-feedback" class="save-feedback">Note saved to memory</div>
+            </div>
+          </div>
+
+          <!-- Selection Mode (shown when text is selected) -->
+          <div id="selection-mode" class="selection-mode hidden">
+            <div class="selection-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              <span>Selection Mode</span>
+            </div>
+            <div class="selection-preview">
+              <span class="label">Selected:</span>
+              <span id="selected-text-preview" class="preview-text"></span>
+            </div>
+            <form id="selection-form">
+              <input type="text" id="selection-prompt" placeholder="e.g., make formal, shorten, fix grammar..." autocomplete="off" aria-label="Describe how to rewrite the selection">
+              <button type="submit" class="btn primary">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+                Rewrite
+              </button>
+            </form>
+          </div>
+
+          <!-- Status (shown during compose) -->
+          <div id="status" class="status hidden">
+            <div class="spinner"></div>
+            <span id="status-text">Composing...</span>
+          </div>
+
+          <!-- No Field Warning -->
+          <div id="no-field" class="no-field hidden">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="3" y1="9" x2="21" y2="9"></line>
+              <line x1="9" y1="21" x2="9" y2="9"></line>
+            </svg>
+            <p>No text field found</p>
+            <p class="hint">Click on a text field and try again</p>
+          </div>
+
+          <!-- Results -->
+          <div id="results" class="results hidden">
+            <div class="results-header">
+              <h3>Composition Result</h3>
+              <span id="result-time" class="result-time"></span>
+            </div>
+
+            <div class="result-meta">
+              <span class="badge platform" id="platform-display"></span>
+              <span class="badge confidence" id="confidence-display"></span>
+              <span class="badge tokens" id="token-display">0 tokens</span>
+            </div>
+
+            <div class="intent-box">
+              <span class="label">Intent:</span>
+              <span id="intent-display"></span>
+            </div>
+
+            <div class="draft-box">
+              <div class="draft-header">
+                <span>Generated Draft</span>
+              </div>
+              <div id="draft-display" class="draft-content"></div>
+            </div>
+
+            <div class="actions">
+              <button id="insert-btn" class="btn primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Insert
+              </button>
+              <button id="copy-btn" class="btn secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                Copy
+              </button>
+              <button id="retry-btn" class="btn secondary" title="Retry" aria-label="Retry composition">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Error -->
+          <div id="error-section" class="error hidden">
+            <p id="error-message">Something went wrong</p>
+            <button id="retry-error-btn" class="btn secondary">Try Again</button>
+          </div>
+        </div>
+
+        <!-- SETTINGS VIEW -->
+        <div id="view-settings" class="view hidden">
+          <div id="credit-status-card" class="view-card">
+            <div class="view-card-header">
+              <h3 class="view-card-title">Credit Status</h3>
+            </div>
+            <div class="view-card-content">
+              <div id="credit-status-display" class="setting-group">
+                <span id="credit-tier-badge" class="badge"></span>
+                <span id="credit-tier-message"></span>
+              </div>
+            </div>
+          </div>
+          <div class="view-card">
+            <div class="view-card-header">
+              <h3 class="view-card-title">LLM Configuration</h3>
+              <p class="view-card-description">Choose your AI provider and model</p>
+            </div>
+            <div class="view-card-content">
+              <div class="setting-group">
+                <label for="byok-provider">Provider</label>
+                <select id="byok-provider">
+                  <option value="">Default (OpenRouter)</option>
+                  <option value="gemini">Google Gemini</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openrouter">OpenRouter</option>
+                  <option value="custom">Custom (OpenAI-compatible)</option>
+                </select>
+              </div>
+
+              <div id="model-selector-group" class="setting-group">
+                <label for="model-selector">Model</label>
+                <select id="model-selector">
+                  <option value="">Gemini 3 Flash (default)</option>
+                  <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (cheapest)</option>
+                  <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (best quality)</option>
+                </select>
+                <p class="setting-hint" style="font-size:11px;color:#888;margin-top:4px;">Uses your $5 credit (billed to GCP)</p>
+              </div>
+
+              <div id="byok-fields" class="hidden">
+                <div id="byok-baseurl-group" class="setting-group hidden">
+                  <label for="byok-baseurl">Base URL</label>
+                  <input type="url" id="byok-baseurl" placeholder="https://api.example.com/v1">
+                </div>
+                <div class="setting-group">
+                  <label for="byok-apikey">API Key</label>
+                  <input type="password" id="byok-apikey" placeholder="Your API key">
+                </div>
+                <div class="setting-group">
+                  <label for="byok-model">Model</label>
+                  <input type="text" id="byok-model" placeholder="e.g. gpt-4o, claude-3-5-sonnet-20241022">
+                </div>
+              </div>
+
+              <button id="save-settings-btn" class="btn primary large" type="button">Save Settings</button>
+              <div id="save-feedback" class="save-feedback">Settings saved</div>
+            </div>
+          </div>
+
+          <!-- Save a Note (in settings) -->
+          <div class="view-card" style="margin-top: 12px;">
+            <div class="view-card-header">
+              <h3 class="view-card-title">Save a Note</h3>
+              <p class="view-card-description">Save a preference, fact, or note to memory</p>
+            </div>
+            <div class="view-card-content">
+              <div class="setting-group">
+                <textarea id="settings-note-input" rows="3" placeholder="e.g., I prefer formal tone in emails, My team uses Slack for standups..."></textarea>
+              </div>
+              <button id="save-settings-note-btn" class="btn primary" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                </svg>
+                Save Note
+              </button>
+              <div id="settings-note-feedback" class="save-feedback">Note saved to memory</div>
+            </div>
+          </div>
+
+          <!-- Feedback -->
+          <div class="view-card" style="margin-top: 12px;">
+            <div class="view-card-header">
+              <h3 class="view-card-title">Send Feedback</h3>
+              <p class="view-card-description">Report a bug or suggest a feature</p>
+            </div>
+            <div class="view-card-content">
+              <div class="setting-group">
+                <label for="feedback-category">Category</label>
+                <select id="feedback-category">
+                  <option value="bug">Bug Report</option>
+                  <option value="feature">Feature Request</option>
+                  <option value="general">General Feedback</option>
+                  <option value="praise">Praise</option>
+                </select>
+              </div>
+              <div class="setting-group">
+                <textarea id="feedback-message" rows="3" placeholder="Describe the issue or suggestion..."></textarea>
+              </div>
+              <button id="send-feedback-btn" class="btn primary" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 2L11 13"></path>
+                  <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+                </svg>
+                Send Feedback
+              </button>
+              <div id="feedback-status" class="save-feedback">Feedback sent. Thank you!</div>
+            </div>
+          </div>
+
+          <div class="shortcuts-section" style="margin:12px 0;padding:10px 12px;background:#f8f9fa;border-radius:8px;font-size:12px;color:#555;">
+            <div style="font-weight:600;margin-bottom:6px;color:#333;">Keyboard Shortcuts</div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+              <span>Compose</span><kbd style="background:#e9ecef;padding:1px 6px;border-radius:4px;font-size:11px;">Alt+Q</kbd>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span>Toggle Chat</span><kbd style="background:#e9ecef;padding:1px 6px;border-radius:4px;font-size:11px;">Alt+W</kbd>
+            </div>
+          </div>
+
+          <div class="settings-footer">
+            <button id="logout-btn" class="btn danger" type="button">Logout</button>
+            <a href="https://github.com/Kvndoshi/privacy-policies/blob/main/privacy-policy.md" target="_blank" style="display:block;text-align:center;margin-top:10px;font-size:11px;color:#888;text-decoration:none;">Privacy Policy</a>
+          </div>
+        </div>
+
+        <!-- DEBUG VIEW -->
+        <div id="view-debug" class="view hidden">
+          <div id="debug-history-container"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

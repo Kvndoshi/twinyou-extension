@@ -1,0 +1,89 @@
+{
+  "manifest_version": 3,
+  "name": "Compose Assistant",
+  "version": "1.1.0",
+  "description": "AI-powered text composition assistant with BYOK support",
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs",
+    "contextMenus",
+    "identity",
+    "debugger"
+  ],
+
+  "oauth2": {
+    "client_id": "453133317856-utvsohf3lfua1et7a19fkmc9l8vbu8ll.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/userinfo.email"
+    ]
+  },
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "action": {
+    "default_title": "Compose Assistant",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon.png"
+    }
+  },
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "text_writer.js",
+        "document_adapters/base_adapter.js",
+        "document_adapters/registry.js",
+        "document_adapters/word_online.js",
+        "document_adapters/google_docs.js",
+        "content.js"
+      ],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon.png"
+  },
+
+  "options_ui": {
+    "page": "popup.html",
+    "open_in_tab": false
+  },
+
+  "commands": {
+    "compose": {
+      "suggested_key": {
+        "default": "Alt+Q",
+        "mac": "Alt+Q"
+      },
+      "description": "Trigger AI composition"
+    },
+    "toggle-chat": {
+      "suggested_key": {
+        "default": "Alt+W",
+        "mac": "Alt+W"
+      },
+      "description": "Toggle chat panel"
+    }
+  }
+}
