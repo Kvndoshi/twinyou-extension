@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Compose Assistant",
+  "name": "TwinYou",
   "version": "1.1.0",
   "description": "AI-powered text composition assistant with BYOK support",
 
@@ -27,7 +27,7 @@
   ],
 
   "action": {
-    "default_title": "Compose Assistant",
+    "default_title": "TwinYou",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
