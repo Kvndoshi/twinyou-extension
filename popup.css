@@ -193,16 +193,17 @@ body::after {
 .logo-icon {
   width: 36px;
   height: 36px;
-  background: var(--gradient-brand);
+  background: #FFFFFF;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #1a1a2e;
   font-weight: 700;
   font-size: 12px;
   letter-spacing: 0.5px;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .subtitle {

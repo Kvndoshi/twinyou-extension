@@ -52,7 +52,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   chrome.contextMenus.removeAll();
   chrome.contextMenus.create({
     id: 'compose-settings',
-    title: 'Compose Assistant Settings',
+    title: 'TwinYou Settings',
     contexts: ['action']
   });
   chrome.contextMenus.create({
@@ -1180,7 +1180,7 @@ async function handleChatMessage(tabId, data) {
       body.page_url = data.currentUrl;
     }
 
-    // If "with_page" mode, capture page context
+    // If "with_page" mode, capture page context + body text
     if (data.mode === 'with_page' && tabId) {
       try {
         const tab = await chrome.tabs.get(tabId);
@@ -1190,8 +1190,12 @@ async function handleChatMessage(tabId, data) {
           body.is_pdf = true;
           body.page_url = tab.url;
           body.page_context = context.pageContext || '';
-        } else if (context && context.pageContext) {
-          body.page_context = context.pageContext;
+        } else if (context) {
+          // Combine metadata + body text for rich page context
+          const parts = [];
+          if (context.pageContext) parts.push(context.pageContext);
+          if (context.bodyText) parts.push(context.bodyText);
+          body.page_context = parts.join('\n\n') || '';
           body.page_url = tab.url;
         }
       } catch (e) {

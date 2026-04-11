@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn8Bgzh7nWSVzHf2bSxt43zFnVdycmRlIMd74IsO9r0k9Iq31j2TWTyyI1qTXclJpVfJ4PESSS5mcreq9Jmivdj2eYfdsRYFAeHEKjYEmKYZGOQD0WX3sjOiwUpAO4mq4lP5x1SXhT9ajBoEezHtpTLzav+lRn5bbWXXPfRH52UYfu6rGCIlb+mH7HQBfYLw5O9qrz8s9aQhs2T2D8an5ZymxRw417XoXuqgJdql97SvIKa9RaPcyPtVE7rfTmcy6FJCMM0fFDdB1kj77gJblyt3khAbhXK7AX/A7BAMV81eTTWI/u6OZk8UdF4U7l/MA+jQM3/63Adtjsi73l1jAWQIDAQAB",
   "name": "TwinYou",
   "version": "1.1.0",
-  "description": "AI-powered text composition assistant with BYOK support",
+  "description": "Your AI twin that learns your writing style and drafts messages for you across any platform",
 
   "permissions": [
     "storage",
@@ -69,6 +70,13 @@
     "page": "popup.html",
     "open_in_tab": false
   },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*.png"],
+      "matches": ["<all_urls>"]
+    }
+  ],
 
   "commands": {
     "compose": {

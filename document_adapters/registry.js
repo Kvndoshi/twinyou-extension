@@ -63,10 +63,9 @@
       }
     }
 
-    if (matched) {
-      cachedAdapter = matched;
-      cachePopulated = true;
-    } else {
+    cachedAdapter = matched;
+    cachePopulated = true;
+    if (!matched) {
       console.log('[ComposeAdapterRegistry] No adapter matched/detected');
     }
     return matched;

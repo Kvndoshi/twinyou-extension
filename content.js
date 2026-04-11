@@ -333,6 +333,10 @@ function showToast(state, data = {}) {
       toast.classList.add('composing');
       icon.innerHTML = `<div class="spinner"></div>`;
       message.textContent = 'Capturing context...';
+      // Safety: auto-dismiss if flow stalls (e.g., adapter error)
+      hideTimeout = setTimeout(() => {
+        showToast('error', { message: 'Capture timed out — try again' });
+      }, 15000);
       break;
 
     case 'inserting':
@@ -1426,7 +1430,7 @@ function extractPageContext() {
   const editable = findEditableElement();
 
   if (!editable) {
-    return { hasEditable: false, draftText: '', containerHtml: '', pageContext: '', selector: null, cursorCluster: null };
+    return { hasEditable: false, draftText: '', containerHtml: '', pageContext: captureVisiblePageContext(), selector: null, cursorCluster: null };
   }
 
   const draftText = getElementValue(editable);
@@ -1933,7 +1937,7 @@ function createChatBar() {
   const toggleBtn = document.createElement('button');
   toggleBtn.className = 'chat-bar-toggle';
   toggleBtn.title = 'Open Chat (Alt+W)';
-  toggleBtn.innerHTML = `<div class="chat-fab-ring"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="white" stroke="none"><line x1="8" y1="16" x2="17" y2="7" stroke="white" stroke-width="2.2" stroke-linecap="round"/><path d="M7.3 15.3 L8.7 16.7 L5.5 18.5Z"/><path d="M19 1.5L19.7 3.3 21.5 4 19.7 4.7 19 6.5 18.3 4.7 16.5 4 18.3 3.3Z"/></svg>`;
+  toggleBtn.innerHTML = `<div class="chat-fab-ring"></div><img src="${chrome.runtime.getURL('icons/icon48.png')}" width="28" height="28" style="pointer-events:none;" alt="">`;
 
   // Container (hidden when minimized)
   const container = document.createElement('div');
@@ -1952,14 +1956,14 @@ function createChatBar() {
 
   const logoIcon = document.createElement('span');
   logoIcon.className = 'chat-logo-icon';
-  logoIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="none"><line x1="8" y1="16" x2="17" y2="7" stroke="white" stroke-width="2.2" stroke-linecap="round"/><path d="M7.3 15.3 L8.7 16.7 L5.5 18.5Z" fill="white"/><path d="M19 1.5L19.7 3.3 21.5 4 19.7 4.7 19 6.5 18.3 4.7 16.5 4 18.3 3.3Z" fill="white"/></svg>';
+  logoIcon.innerHTML = `<img src="${chrome.runtime.getURL('icons/icon32.png')}" width="18" height="18" style="pointer-events:none;" alt="">`;
 
   const titleGroup = document.createElement('div');
   titleGroup.className = 'chat-title-group';
 
   const title = document.createElement('span');
   title.className = 'chat-title';
-  title.textContent = 'Compose';
+  title.textContent = 'TwinYou';
 
   const hostDisplay = document.createElement('span');
   hostDisplay.className = 'chat-host-display';
@@ -3014,7 +3018,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // In document editor pages, the editor may live in another frame.
             // If URL matches an adapter pattern but detect() failed, silently defer.
             const registry = globalThis.ComposeDocumentAdapterRegistry;
-            if (registry && typeof registry.hasUrlMatch === 'function' && registry.hasUrlMatch()) {
+            const isDocEditorSite = registry && typeof registry.hasUrlMatch === 'function' && registry.hasUrlMatch();
+            if (isDocEditorSite) {
               console.log('[RUN_COMPOSE] URL matches adapter pattern but no editor found in this frame — deferring to other frames');
               sendResponse({ success: false });
               return;
@@ -3025,15 +3030,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               sendResponse({ success: false });
               return;
             }
-            // Top frame with iframes present — editor may be in an iframe.
-            // Silently defer instead of showing error toast.
-            try {
-              if (document.querySelectorAll('iframe').length > 0) {
-                console.log('[RUN_COMPOSE] Top frame has ' + document.querySelectorAll('iframe').length + ' iframes but no editable — deferring');
-                sendResponse({ success: false });
-                return;
-              }
-            } catch (e) {}
             showToast('no-field');
             sendResponse({ success: false });
             return;
@@ -3258,6 +3254,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'CAPTURE_CONTEXT': {
       cleanupStaleComposes();
       const context = extractPageContext();
+      // Include body text for "with_page" chat mode
+      context.bodyText = (document.body.innerText || '').substring(0, 8000);
       // Detect PDF pages — DOM is empty, server must handle via URL
       context.isPdf = isPdfPage();
       if (context.isPdf) {
@@ -3575,20 +3573,20 @@ if (!document.getElementById(styleId)) {
     /* FAB Toggle */
     #compose-assistant-chat .chat-bar-toggle {
       width: 52px; height: 52px; border-radius: 16px;
-      background: linear-gradient(135deg,#7C3AED 0%,#5B21B6 100%);
-      border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 20px rgba(124,58,237,0.35), 0 0 0 0 rgba(124,58,237,0);
+      background: #FFFFFF;
+      border: 1px solid rgba(0,0,0,0.08); cursor: pointer; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
       transition: transform 0.2s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease;
       position: relative; overflow: hidden;
     }
     #compose-assistant-chat .chat-bar-toggle:hover {
       transform: scale(1.08);
-      box-shadow: 0 6px 24px rgba(124,58,237,0.45), 0 0 0 4px rgba(124,58,237,0.1);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.18), 0 0 0 4px rgba(0,0,0,0.04);
     }
     #compose-assistant-chat .chat-bar-toggle:active { transform: scale(0.95); }
     #compose-assistant-chat .chat-fab-ring {
       position: absolute; inset: -3px; border-radius: 19px;
-      border: 2px solid rgba(255,255,255,0.2);
+      border: 2px solid rgba(0,0,0,0.06);
       animation: ca-fab-pulse 3s ease-in-out infinite; pointer-events: none;
     }
     @keyframes ca-fab-pulse {
@@ -3623,10 +3621,10 @@ if (!document.getElementById(styleId)) {
     }
     #compose-assistant-chat .chat-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
     #compose-assistant-chat .chat-logo-icon {
-      width: 28px; height: 28px; background: linear-gradient(135deg,#7C3AED,#5B21B6);
+      width: 28px; height: 28px; background: #FFFFFF;
       border-radius: 8px; display: flex; align-items: center; justify-content: center;
-      color: white; font-weight: 700; font-size: 10px; letter-spacing: 0.3px;
-      flex-shrink: 0; box-shadow: 0 2px 6px rgba(124,58,237,0.25);
+      color: #1a1a2e; font-weight: 700; font-size: 10px; letter-spacing: 0.3px;
+      flex-shrink: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.06);
     }
     #compose-assistant-chat .chat-title-group { display: flex; flex-direction: column; min-width: 0; }
     #compose-assistant-chat .chat-title {
