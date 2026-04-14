@@ -795,11 +795,17 @@ function isEditable(el) {
 
 function isSearchField(el) {
   if (!el) return false;
-  const elType = (el.getAttribute('type') || '').toLowerCase();
-  const elRole = (el.getAttribute('role') || '').toLowerCase();
+  const elType = (el.getAttribute?.('type') || '').toLowerCase();
+  const elRole = (el.getAttribute?.('role') || '').toLowerCase();
   if (elType === 'search' || elRole === 'combobox' || elRole === 'searchbox') return true;
-  const ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
+  const ariaLabel = (el.getAttribute?.('aria-label') || '').toLowerCase();
   if (ariaLabel.includes('search')) return true;
+  const placeholder = (el.getAttribute?.('placeholder') || '').toLowerCase();
+  if (placeholder.includes('search')) return true;
+  const id = (el.id || '').toLowerCase();
+  if (id.includes('search')) return true;
+  const className = typeof el.className === 'string' ? el.className.toLowerCase() : '';
+  if (/\bsearch(-|_|$)|typeahead/.test(className)) return true;
   if (el.closest?.('[role="search"]')) return true;
   return false;
 }
@@ -810,9 +816,12 @@ function findEditableElement() {
     return el && el.closest && (el.closest('#compose-assistant-chat') || el.closest('#compose-assistant-chat-host'));
   }
 
-  // 1. Try deep active element
+  // 1. Try deep active element — but never a search field. Otherwise a user
+  // who briefly clicked the site's global search bar before triggering compose
+  // poisons context.selector with the search input, and later insertion
+  // strategies route the draft there (LinkedIn reported bug).
   let el = getDeepActiveElement();
-  if (isEditable(el) && !isChatPanel(el)) return el;
+  if (isEditable(el) && !isChatPanel(el) && !isSearchField(el)) return el;
 
   // 1.5 Try last focused editable (survives focus loss from clicking extension icon)
   if (lastFocusedEditable && (Date.now() - lastFocusedTimestamp < 30000)) {
@@ -827,7 +836,7 @@ function findEditableElement() {
   if (selection && selection.anchorNode) {
     let node = selection.anchorNode;
     while (node) {
-      if (node.nodeType === 1 && isEditable(node)) return node;
+      if (node.nodeType === 1 && isEditable(node) && !isSearchField(node)) return node;
       node = node.parentElement;
     }
   }
@@ -851,6 +860,7 @@ function findEditableElement() {
     const elements = document.querySelectorAll(selector);
     for (const el of elements) {
       if (isChatPanel(el)) continue;  // skip our own chat textarea
+      if (isSearchField(el)) continue; // never return the site's search bar
       if (el.offsetWidth > 0 && el.offsetHeight > 0) {
         const rect = el.getBoundingClientRect();
         if (rect.width > 50 && rect.height > 20) {
@@ -867,7 +877,7 @@ function findEditableElement() {
       const iframeDoc = iframe.contentDocument;
       if (iframeDoc) {
         const iframeActive = iframeDoc.activeElement;
-        if (isEditable(iframeActive)) return { iframe, element: iframeActive };
+        if (isEditable(iframeActive) && !isSearchField(iframeActive)) return { iframe, element: iframeActive };
       }
     } catch (e) { /* cross-origin */ }
   }
@@ -1736,7 +1746,18 @@ async function writeValueToElement(el, text) {
 
     if (!cmdOk && !isSlate) {
       el.focus();
-      document.execCommand('selectAll', false, null);
+      // Prefer the preserved-quote-aware selection so we don't nuke Gmail
+      // thread history. Fall back to raw selectAll only if the helper
+      // isn't available.
+      if (typeof textWriter.selectEntireContent === 'function') {
+        try {
+          textWriter.selectEntireContent(el, document, window.getSelection());
+        } catch (err) {
+          document.execCommand('selectAll', false, null);
+        }
+      } else {
+        document.execCommand('selectAll', false, null);
+      }
       cmdOk = document.execCommand('insertText', false, text);
     }
 
@@ -1744,6 +1765,18 @@ async function writeValueToElement(el, text) {
 
     if ((!cmdOk || !textPresent) && !isSlate) {
       _log('[WRITE] contenteditable: execCommand failed, using DOM fallback');
+      // Preserve quoted thread history blocks (Gmail replies etc.) so the
+      // DOM-wipe fallback doesn't delete the conversation.
+      const preservedSelector = textWriter.PRESERVED_QUOTE_SELECTOR
+        || '.gmail_quote, .gmail_extra, .gmail_attr, blockquote.gmail_quote, blockquote[type="cite"], .moz-cite-prefix, [data-smartmail]';
+      const preservedChildren = [];
+      try {
+        for (const child of Array.from(el.children || [])) {
+          if (child.matches && child.matches(preservedSelector)) {
+            preservedChildren.push(child);
+          }
+        }
+      } catch (e) { /* older engines */ }
       while (el.firstChild) el.removeChild(el.firstChild);
       const paragraphs = text.split(/\n\n+/);
       for (const para of paragraphs) {
@@ -1754,6 +1787,10 @@ async function writeValueToElement(el, text) {
           p.appendChild(document.createTextNode(line));
         });
         el.appendChild(p);
+      }
+      // Re-attach preserved history below the new draft so the thread is kept.
+      for (const node of preservedChildren) {
+        try { el.appendChild(node); } catch (e) { /* detached */ }
       }
       el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
     }
@@ -3172,7 +3209,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // Strategy 3: CSS selector
             if (!target && entry.selector) {
               try { target = document.querySelector(entry.selector); } catch (e) {}
-              if (target && !isEditable(target)) target = null;
+              if (target && (!isEditable(target) || isSearchField(target))) target = null;
               if (target) { fallback = 'selector'; _log('[RUN_COMPOSE] Insert strategy 3 (selector)'); }
             }
             // Strategy 4: LinkedIn re-discovery
@@ -3305,11 +3342,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             let target = null;
 
-            if (entry.element && document.body.contains(entry.element) && isEditable(entry.element)) {
+            if (entry.element && document.body.contains(entry.element) && isEditable(entry.element) && !isSearchField(entry.element)) {
               target = entry.element;
               _log(`[INSERT_DRAFT] Strategy 1 (direct ref): found ${target.tagName}#${target.id || ''}.${target.className || ''}`);
             } else if (entry.element) {
-              _log(`[INSERT_DRAFT] Strategy 1 FAILED: inDOM=${document.body.contains(entry.element)}, editable=${isEditable(entry.element)}`);
+              _log(`[INSERT_DRAFT] Strategy 1 FAILED: inDOM=${document.body.contains(entry.element)}, editable=${isEditable(entry.element)}, search=${isSearchField(entry.element)}`);
             }
 
             if (!target && entry.locators && entry.locators.length > 0) {
@@ -3324,7 +3361,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             if (!target && entry.selector) {
               try { target = document.querySelector(entry.selector); } catch (e) {}
-              if (target && !isEditable(target)) target = null;
+              if (target && (!isEditable(target) || isSearchField(target))) target = null;
               if (target) {
                 fallback = 'selector';
                 _log(`[INSERT_DRAFT] Strategy 3 (selector): found via ${entry.selector}`);

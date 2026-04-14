@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const {
   prepareElementForTrustedInsert,
   replaceContentEditableText,
+  selectEntireContent,
+  isPreservedContainer,
+  PRESERVED_QUOTE_SELECTOR,
 } = require('../text_writer');
 
 function createSelectionHarness() {
@@ -587,4 +590,130 @@ runTest('replaces generic contenteditable content through execCommand after sele
   assert.equal(harness.selection.removeAllRangesCalls, 2);
   assert.equal(harness.selection.addRangeCalls, 2);
   assert.equal(harness.documentEvents.length, 2);
+});
+
+runTest('isPreservedContainer identifies Gmail quoted history blocks', () => {
+  function fakeEl(className) {
+    return {
+      nodeType: 1,
+      className,
+      matches(selector) {
+        // Naive but sufficient for our class list selector.
+        return selector.split(',').some(part => {
+          const trimmed = part.trim();
+          if (trimmed.startsWith('.')) {
+            return className.split(/\s+/).includes(trimmed.slice(1));
+          }
+          return false;
+        });
+      },
+    };
+  }
+
+  assert.equal(isPreservedContainer(fakeEl('gmail_quote')), true);
+  assert.equal(isPreservedContainer(fakeEl('gmail_extra')), true);
+  assert.equal(isPreservedContainer(fakeEl('gmail_attr')), true);
+  assert.equal(isPreservedContainer(fakeEl('moz-cite-prefix')), true);
+  assert.equal(isPreservedContainer(fakeEl('regular-content')), false);
+  assert.equal(isPreservedContainer(null), false);
+  assert.equal(isPreservedContainer({ nodeType: 3 }), false); // text node
+});
+
+runTest('selectEntireContent excludes .gmail_quote subtree so thread history is preserved', () => {
+  // Simulate a Gmail reply contenteditable:
+  //   <div contenteditable="true">
+  //     <div>Hi there — here is my draft</div>
+  //     <div class="gmail_quote">
+  //       On Fri Claude wrote: [a lot of quoted history]
+  //     </div>
+  //   </div>
+  const harness = createSelectionHarness();
+
+  const draftText = { nodeType: 3, textContent: 'Hi there — here is my draft' };
+  const draftDiv = {
+    nodeType: 1,
+    tagName: 'DIV',
+    className: '',
+    childNodes: [draftText],
+    matches(selector) { return false; },
+  };
+
+  const quoteText = { nodeType: 3, textContent: 'On Fri Claude wrote: [quoted history]' };
+  const quoteDiv = {
+    nodeType: 1,
+    tagName: 'DIV',
+    className: 'gmail_quote',
+    childNodes: [quoteText],
+    matches(selector) {
+      return selector.split(',').some(p => p.trim() === '.gmail_quote');
+    },
+  };
+
+  const root = {
+    nodeType: 1,
+    tagName: 'DIV',
+    isContentEditable: true,
+    childNodes: [draftDiv, quoteDiv],
+    children: [draftDiv, quoteDiv],
+    matches() { return false; },
+    getAttribute(name) {
+      if (name === 'contenteditable') return 'true';
+      return null;
+    },
+  };
+
+  selectEntireContent(root, harness.documentRef, harness.selection);
+
+  // Range should start at the draft text node and end at the draft text node
+  // — NOT spanning into the gmail_quote subtree.
+  assert.equal(harness.ranges.length, 1);
+  assert.equal(harness.ranges[0].startContainer, draftText);
+  assert.equal(harness.ranges[0].endContainer, draftText);
+  assert.equal(harness.ranges[0].endOffset, draftText.textContent.length);
+  // Crucially, the end container must NOT be the quote text — that's the bug.
+  assert.notEqual(harness.ranges[0].endContainer, quoteText);
+});
+
+runTest('selectEntireContent with no draft text nodes bounds the range before the quote', () => {
+  // Gmail reply where the draft area is empty (e.g. just a <br>), quote exists.
+  // We must still end the range before the quote block, otherwise insertText
+  // will swallow the quote.
+  const harness = createSelectionHarness();
+
+  const quoteText = { nodeType: 3, textContent: 'Quoted history' };
+  const quoteDiv = {
+    nodeType: 1,
+    tagName: 'DIV',
+    className: 'gmail_quote',
+    childNodes: [quoteText],
+    matches(selector) {
+      return selector.split(',').some(p => p.trim() === '.gmail_quote');
+    },
+    querySelector() { return null; },
+  };
+
+  let setEndBeforeCalledWith = null;
+  const createRange = harness.documentRef.createRange;
+  harness.documentRef.createRange = function() {
+    const r = createRange();
+    r.setEndBefore = function(node) { setEndBeforeCalledWith = node; };
+    return r;
+  };
+
+  const root = {
+    nodeType: 1,
+    tagName: 'DIV',
+    isContentEditable: true,
+    childNodes: [quoteDiv],
+    children: [quoteDiv],
+    matches() { return false; },
+    getAttribute(name) {
+      if (name === 'contenteditable') return 'true';
+      return null;
+    },
+  };
+
+  selectEntireContent(root, harness.documentRef, harness.selection);
+
+  assert.equal(setEndBeforeCalledWith, quoteDiv);
 });

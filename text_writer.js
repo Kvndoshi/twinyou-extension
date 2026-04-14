@@ -15,10 +15,33 @@
     return root;
   }
 
+  // Subtrees that represent quoted / cited history (Gmail thread replies, forwarded
+  // messages, other email clients). Anything inside these should be preserved
+  // verbatim during draft insertion — we never want to overwrite the user's
+  // conversation history.
+  const PRESERVED_QUOTE_SELECTOR =
+    '.gmail_quote, .gmail_extra, .gmail_attr, blockquote.gmail_quote, ' +
+    'blockquote[type="cite"], .moz-cite-prefix, [data-smartmail]';
+
+  function isPreservedContainer(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (typeof node.matches !== 'function') return false;
+    try {
+      return node.matches(PRESERVED_QUOTE_SELECTOR);
+    } catch (error) {
+      return false;
+    }
+  }
+
   function collectTextNodes(root) {
     const textNodes = [];
     function walk(node) {
       if (!node) {
+        return;
+      }
+      // Skip quoted-history subtrees (Gmail .gmail_quote, blockquote[type="cite"], etc.)
+      // so execCommand('insertText') only replaces the user's draft area.
+      if (isPreservedContainer(node)) {
         return;
       }
       if (node.nodeType === 3) {
@@ -50,6 +73,22 @@
     }
   }
 
+  function findFirstPreservedChild(target) {
+    if (!target) return null;
+    const children = target.children ? Array.from(target.children) : [];
+    for (const child of children) {
+      if (isPreservedContainer(child)) return child;
+      // Also catch cases where the quote is wrapped one level deeper.
+      if (typeof child.querySelector === 'function') {
+        try {
+          const nested = child.querySelector(PRESERVED_QUOTE_SELECTOR);
+          if (nested) return child;
+        } catch (error) { /* ignore */ }
+      }
+    }
+    return null;
+  }
+
   function selectEntireContent(target, documentRef, selection, options = {}) {
     const range = documentRef.createRange();
     const textNodes = collectTextNodes(target);
@@ -60,7 +99,20 @@
       range.setStart(first, 0);
       range.setEnd(last, last.textContent?.length || 0);
     } else {
-      range.selectNodeContents(target);
+      // No draftable text nodes outside preserved quotes. If there's a
+      // quoted-history block, bound the range to end just before it so
+      // insertText can't eat the quote.
+      const firstPreserved = findFirstPreservedChild(target);
+      if (firstPreserved && typeof range.setEndBefore === 'function') {
+        try {
+          range.setStart(target, 0);
+          range.setEndBefore(firstPreserved);
+        } catch (error) {
+          range.selectNodeContents(target);
+        }
+      } else {
+        range.selectNodeContents(target);
+      }
     }
 
     selection.removeAllRanges();
@@ -541,6 +593,8 @@
     replaceContentEditableText,
     selectEntireSlateContent,
     selectEntireContent,
+    isPreservedContainer,
+    PRESERVED_QUOTE_SELECTOR,
   };
 
   globalObject.ComposeTextWriter = api;
